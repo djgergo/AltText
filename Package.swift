@@ -1,12 +1,12 @@
-// swift-tools-version: 6.2
+// swift-tools-version: 6.4
 
 import PackageDescription
 
 let package = Package(
     name: "AltText",
     platforms: [
-        .macOS(.v26),
-        .iOS(.v26)
+        .macOS(.v27),
+        .iOS(.v27)
     ],
     products: [
         .executable(name: "AltText", targets: ["AltText"])

@@ -2,18 +2,13 @@
 
 Alt text for your images, written on-device, by your own Mac or iPhone.
 
-AltText is a tiny Mac + iPhone/iPad app: drop in some images, hit **Generate Alt Text**, and Apple's on-device Foundation Model writes accessible alt text for each one. Everything happens locally — no backend, no accounts, no analytics, no uploading your photos to someone else's server. If Apple Intelligence isn't available, the app just says so; it never quietly falls back to a cloud service.
-
-## Heads up: generation is a placeholder right now
-
-Apple's on-device models don't do image input yet — that's landing with the multimodal on-device models in iOS/macOS 27. Until then, hitting Generate just returns a stand-in string so the whole pending → generating → done flow is wired up and testable. Once 27 ships, the real thing drops in behind the same button — no UI changes needed.
+AltText is a tiny Mac + iPhone/iPad app: drop in some images, hit **Generate Alt Text**, and Apple's on-device multimodal Foundation Model writes accessible alt text for each one. Everything happens locally — no backend, no accounts, no analytics, no uploading your photos to someone else's server. If Apple Intelligence isn't available, the app just says so; it never quietly falls back to a cloud service.
 
 ## What you need
 
 - A Mac that can run Xcode (free from the Mac App Store) — optionally an iPhone or iPad too, if you want to try it there
-- macOS 26+ / iOS 26+ to open the app at all
-- macOS 27+ / iOS 27+ once you actually want Generate to do something real
-- An Apple Intelligence-capable device and region (for later, once real generation lands)
+- macOS 27+ / iOS 27+ to open the app at all
+- An Apple Intelligence-capable device and region
 
 ## Getting it running
 
@@ -63,7 +58,7 @@ That means the app's running fine, it just can't find a ready Apple Intelligence
 
 - Your device actually supports Apple Intelligence
 - Apple Intelligence is turned on in Settings
-- You're on macOS/iOS 26+ (26+ opens the app; 27+ is needed before Generate does more than the placeholder — see above)
+- You're on macOS/iOS 27+
 - The model has actually finished downloading
 - Your region/language supports Apple Intelligence
 

@@ -15,6 +15,14 @@ enum AltTextServiceError: LocalizedError {
 struct AltTextService: AltTextGenerating {
     private let model = SystemLanguageModel.default
 
+    private static let instructions = """
+        You write alt text for images, for use by screen readers and other \
+        assistive technology. For each image, write one or two concise \
+        sentences describing the important visual content. Do not start with \
+        "Image of", "Picture of", or similar preambles, and do not mention the \
+        filename.
+        """
+
     func availability() -> ModelAvailabilityState {
         switch model.availability {
         case .available:
@@ -25,8 +33,8 @@ struct AltTextService: AltTextGenerating {
     }
 
     func prewarm() {
-        // Real prewarm (a LanguageModelSession primed for image input) lands once
-        // Attachment-based generation replaces the stub below.
+        let session = LanguageModelSession(model: model, instructions: Self.instructions)
+        session.prewarm()
     }
 
     func generateAltText(for item: ImageItem) async throws -> String {
@@ -34,19 +42,22 @@ struct AltTextService: AltTextGenerating {
             throw AltTextServiceError.modelUnavailable(availability().detail ?? "Apple Intelligence is not ready.")
         }
 
-        // TODO(macOS 27, GA 2026-09-14): swap this stub for real multimodal generation:
-        //
-        //   let session = LanguageModelSession(model: model, instructions: instructions)
-        //   let response = try await session.respond {
-        //       "Write concise, accessible alt text for this image."
-        //       Attachment(imageURL: item.url)
-        //   }
-        //   return response.content
-        //
-        // The delay below stands in for that call so pending -> generating -> done
-        // status transitions can be exercised end to end before that API exists here.
-        try await Task.sleep(for: .milliseconds(500))
-        return "placeholder"
+        // Under App Sandbox, reading a user-picked or dropped file requires
+        // explicitly claiming access first — see ThumbnailCache.decode(url:).
+        // Without this, the model's attempt to read the image fails and
+        // surfaces as an opaque "content the model cannot process" error.
+        let isAccessing = item.url.startAccessingSecurityScopedResource()
+        defer { if isAccessing { item.url.stopAccessingSecurityScopedResource() } }
+
+        // A fresh session per image: LanguageModelSession isn't safe for concurrent
+        // respond() calls on the same instance, and the view model generates
+        // pending items concurrently via a TaskGroup.
+        let session = LanguageModelSession(model: model, instructions: Self.instructions)
+        let response = try await session.respond {
+            "Write concise, accessible alt text for this image."
+            Attachment(imageURL: item.url)
+        }
+        return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func userFacingReason(for reason: SystemLanguageModel.Availability.UnavailableReason) -> String {
