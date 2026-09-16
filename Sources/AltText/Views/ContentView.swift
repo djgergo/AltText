@@ -10,6 +10,11 @@ struct ContentView: View {
     @State private var isPhotosPickerPresented = false
     @State private var isAddSourceDialogPresented = false
     @State private var selectedPhotosPickerItems: [PhotosPickerItem] = []
+    @State private var isExportPresented = false
+    @State private var exportDocument: AltTextEmbeddedImageDocument?
+    @State private var exportContentType: UTType = .jpeg
+    @State private var exportFilename = ""
+    @State private var exportErrorMessage: String?
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -120,6 +125,52 @@ struct ContentView: View {
             }
             return true
         }
+        // Declared here rather than on each row: on macOS, `.fileExporter`
+        // drives an NSSavePanel sheet that resolves its hosting window by
+        // walking up the view hierarchy, which is unreliable — to the point
+        // of wedging the app — when the modifier lives on a view nested
+        // inside a List row's recycling machinery. iOS's document-picker
+        // presentation doesn't share that fragility, which is why the same
+        // per-row modifier only misbehaved on macOS.
+        .fileExporter(
+            isPresented: $isExportPresented,
+            document: exportDocument,
+            contentType: exportContentType,
+            defaultFilename: exportFilename
+        ) { result in
+            if case .failure(let error) = result {
+                exportErrorMessage = error.localizedDescription
+            }
+        }
+        .alert(
+            "Couldn't Export Image",
+            isPresented: Binding(
+                get: { exportErrorMessage != nil },
+                set: { isPresented in if !isPresented { exportErrorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(exportErrorMessage ?? "")
+        }
+    }
+
+    // Encoding runs off the main actor since it re-reads and re-packages the
+    // full-resolution original, not the row's small cached thumbnail.
+    private func exportAltText(for item: ImageItem, text: String) {
+        Task {
+            do {
+                let data = try await Task.detached(priority: .userInitiated) {
+                    try AltTextMetadataEmbedder.embed(altText: text, into: item.url)
+                }.value
+                exportDocument = AltTextEmbeddedImageDocument(data: data)
+                exportContentType = UTType(filenameExtension: item.url.pathExtension) ?? .jpeg
+                exportFilename = item.filename
+                isExportPresented = true
+            } catch {
+                exportErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
+        }
     }
 
     /// Compact-width replacement for the toolbar's status item: full label,
@@ -163,6 +214,7 @@ struct ContentView: View {
                     ImageRowView(
                         item: item,
                         onRegenerate: { Task { await viewModel.regenerateAltText(for: item.id) } },
+                        onExport: { text in exportAltText(for: item, text: text) },
                         onRemove: { viewModel.removeImage(id: item.id) }
                     )
                     .listRowInsets(EdgeInsets())

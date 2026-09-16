@@ -10,6 +10,7 @@ import UIKit
 struct ImageRowView: View {
     let item: ImageItem
     let onRegenerate: () -> Void
+    let onExport: (String) -> Void
     let onRemove: () -> Void
 
     @State private var thumbnail: PlatformImage?
@@ -22,7 +23,11 @@ struct ImageRowView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(alignment: .center, spacing: 14) {
+            // Top-aligned rather than centered: once the done state grew a
+            // second line for its action row, centering made the thumbnail
+            // drift away from the filename it's paired with as row height
+            // grew, instead of anchoring to it the way a list avatar should.
+            HStack(alignment: .top, spacing: 14) {
                 thumbnailView
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -172,45 +177,83 @@ struct ImageRowView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    // Read-only text plus its two actions, laid out like the placeholder
-    // states above it rather than as an editable field — generated alt text
-    // is meant to be reviewed and reused, not hand-edited in place.
+    // Read-only text on its own line, with a dedicated action row underneath
+    // rather than icons squeezed beside it — four full-size tap targets
+    // don't fit next to the text without crowding out the content they act
+    // on, so this follows the same shape as Photos' bottom action bar:
+    // everything visible at once, evenly spaced, below the content.
     private func doneAltText(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(text)
                 .font(.body)
                 .textSelection(.enabled)
-                .frame(minHeight: altTextAreaMinHeight, alignment: .topLeading)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
+            actionRow(text: text)
+        }
+    }
+
+    // Icon-only controls read fine once you know them, but nothing forces a
+    // first-time visitor to hover for a tooltip (and iOS has no hover at
+    // all) — a one-word caption under each icon, like Photos' own bottom
+    // toolbar, makes the row self-explanatory at a glance instead of
+    // relying on discovery.
+    private func actionRow(text: String) -> some View {
+        HStack(spacing: 0) {
             actionButton(
                 systemImage: "arrow.clockwise",
-                label: "Regenerate",
+                title: "Regenerate",
+                accessibilityLabel: "Regenerate alt text",
                 help: "Regenerate alt text",
                 action: onRegenerate
             )
 
             actionButton(
                 systemImage: showsCopyConfirmation ? "checkmark" : "doc.on.doc",
-                label: showsCopyConfirmation ? "Copied" : "Copy",
+                title: showsCopyConfirmation ? "Copied" : "Copy",
+                accessibilityLabel: showsCopyConfirmation ? "Copied" : "Copy alt text",
                 help: "Copy alt text",
                 action: { copyToPasteboard(text) }
             )
 
             shareButton(text: text)
+
+            actionButton(
+                systemImage: "square.and.arrow.down",
+                title: "Export",
+                accessibilityLabel: "Export \(item.filename) with alt text embedded",
+                help: "Export with alt text embedded",
+                action: { onExport(text) }
+            )
         }
     }
 
-    private func actionButton(systemImage: String, label: String, help: String, action: @escaping () -> Void) -> some View {
+    private func actionButton(
+        systemImage: String,
+        title: String,
+        accessibilityLabel: String,
+        help: String,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
-            Image(systemName: systemImage)
-                .foregroundStyle(.secondary)
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
+            actionLabel(systemImage: systemImage, title: title)
         }
         .buttonStyle(.plain)
         .help(help)
-        .accessibilityLabel(Text(label))
+        .accessibilityLabel(Text(accessibilityLabel))
+    }
+
+    private func actionLabel(systemImage: String, title: String) -> some View {
+        VStack(spacing: 2) {
+            Image(systemName: systemImage)
+            Text(title)
+                .font(.caption2)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity, minHeight: 44)
+        .contentShape(Rectangle())
     }
 
     // Sharing `item.url` directly would use URL's own Transferable
@@ -224,10 +267,7 @@ struct ImageRowView: View {
             message: Text(text),
             preview: SharePreview(Text(item.filename), image: sharePreviewImage)
         ) {
-            Image(systemName: "square.and.arrow.up")
-                .foregroundStyle(.secondary)
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
+            actionLabel(systemImage: "square.and.arrow.up", title: "Share")
         }
         .buttonStyle(.plain)
         .help("Share image and alt text")
@@ -305,7 +345,7 @@ private struct ShareableImage: Transferable {
                 ImageItem(url: URL(filePath: "/tmp/broken.jpg"), status: .failed("Couldn't generate alt text for this image. Try again."))
             ]
         ) { item in
-            ImageRowView(item: item, onRegenerate: {}, onRemove: {})
+            ImageRowView(item: item, onRegenerate: {}, onExport: { _ in }, onRemove: {})
                 .listRowInsets(EdgeInsets())
                 .listRowSeparator(.hidden)
         }
