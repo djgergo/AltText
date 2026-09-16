@@ -162,10 +162,7 @@ struct ContentView: View {
                 ForEach(viewModel.items) { item in
                     ImageRowView(
                         item: item,
-                        altText: Binding(
-                            get: { viewModel.altText(for: item.id) },
-                            set: { viewModel.setAltText($0, for: item.id) }
-                        ),
+                        onRegenerate: { Task { await viewModel.regenerateAltText(for: item.id) } },
                         onRemove: { viewModel.removeImage(id: item.id) }
                     )
                     .listRowInsets(EdgeInsets())

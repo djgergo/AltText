@@ -35,17 +35,6 @@ final class AltTextViewModel {
         items.removeAll { $0.id == id }
     }
 
-    func altText(for id: UUID) -> String {
-        guard let item = items.first(where: { $0.id == id }), case .done(let text) = item.status else {
-            return ""
-        }
-        return text
-    }
-
-    func setAltText(_ text: String, for id: UUID) {
-        updateStatus(.done(text), for: id)
-    }
-
     func generateAltText() async {
         guard !isGenerating, modelAvailability.isReady else { return }
 
@@ -62,6 +51,13 @@ final class AltTextViewModel {
                 }
             }
         }
+    }
+
+    // Re-runs generation for a single already-done (or failed) item, independent
+    // of the batch `generateAltText()` — the model call itself already reports
+    // unavailability as a per-item failure, so there's no availability guard here.
+    func regenerateAltText(for id: UUID) async {
+        await generate(id: id)
     }
 
     private func generate(id: UUID) async {

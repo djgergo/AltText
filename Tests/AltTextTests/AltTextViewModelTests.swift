@@ -71,14 +71,21 @@ final class AltTextViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.items.isEmpty)
     }
 
-    func testSetAltTextUpdatesDoneStatus() {
-        let viewModel = AltTextViewModel(service: FakeAltTextService())
+    func testRegenerateAltTextReplacesDoneStatusWithNewServiceResult() async {
+        let service = FakeAltTextService(result: .success("first pass"))
+        let viewModel = AltTextViewModel(service: service)
         viewModel.addImages(at: [URL(fileURLWithPath: "/tmp/a.jpg")])
+        viewModel.modelAvailability = .ready
         let id = viewModel.items[0].id
 
-        viewModel.setAltText("edited text", for: id)
+        await viewModel.generateAltText()
+        XCTAssertEqual(viewModel.items.first?.status, .done("first pass"))
 
-        XCTAssertEqual(viewModel.altText(for: id), "edited text")
+        service.result = .success("second pass")
+        await viewModel.regenerateAltText(for: id)
+
+        XCTAssertEqual(viewModel.items.first?.status, .done("second pass"))
+        XCTAssertEqual(service.generatedCount, 2)
     }
 }
 
@@ -89,7 +96,7 @@ private enum TestError: LocalizedError {
 }
 
 private final class FakeAltTextService: AltTextGenerating, @unchecked Sendable {
-    let result: Result<String, Error>
+    var result: Result<String, Error>
     private(set) var generatedCount = 0
 
     init(result: Result<String, Error> = .success("stub")) {

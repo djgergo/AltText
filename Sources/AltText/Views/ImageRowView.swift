@@ -1,16 +1,23 @@
 import SwiftUI
 
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
+
 struct ImageRowView: View {
     let item: ImageItem
-    let altText: Binding<String>
+    let onRegenerate: () -> Void
     let onRemove: () -> Void
 
     @State private var thumbnail: PlatformImage?
+    @State private var showsCopyConfirmation = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    // Scales with Dynamic Type so enlarged accessibility text sizes still fit
-    // without the editor's own scrolling fighting the outer List's.
+    // Scales with Dynamic Type so the placeholder/generated text areas stay
+    // tall enough to read comfortably at larger accessibility text sizes.
     @ScaledMetric(relativeTo: .body) private var altTextAreaMinHeight: CGFloat = 44
-    @ScaledMetric(relativeTo: .body) private var altTextAreaMaxHeight: CGFloat = 88
 
     var body: some View {
         VStack(spacing: 0) {
@@ -137,14 +144,8 @@ struct ImageRowView: View {
             placeholderText("Not generated yet.")
         case .generating:
             placeholderText("Writing alt text…")
-        case .done:
-            TextEditor(text: altText)
-                .font(.body)
-                .scrollContentBackground(.hidden)
-                .frame(minHeight: altTextAreaMinHeight, maxHeight: altTextAreaMaxHeight)
-                .padding(8)
-                .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: 8))
-                .accessibilityLabel(Text("Alt text for \(item.filename)"))
+        case .done(let text):
+            doneAltText(text)
         case .failed(let message):
             // A manual top-aligned HStack rather than `Label` — with a
             // multi-line message, `Label` centers its icon against the whole
@@ -169,4 +170,85 @@ struct ImageRowView: View {
             .frame(minHeight: altTextAreaMinHeight, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
+
+    // Read-only text plus its two actions, laid out like the placeholder
+    // states above it rather than as an editable field — generated alt text
+    // is meant to be reviewed and reused, not hand-edited in place.
+    private func doneAltText(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 4) {
+            Text(text)
+                .font(.body)
+                .textSelection(.enabled)
+                .frame(minHeight: altTextAreaMinHeight, alignment: .topLeading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            actionButton(
+                systemImage: "arrow.clockwise",
+                label: "Regenerate",
+                help: "Regenerate alt text",
+                action: onRegenerate
+            )
+
+            actionButton(
+                systemImage: showsCopyConfirmation ? "checkmark" : "doc.on.doc",
+                label: showsCopyConfirmation ? "Copied" : "Copy",
+                help: "Copy alt text",
+                action: { copyToPasteboard(text) }
+            )
+        }
+    }
+
+    private func actionButton(systemImage: String, label: String, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .foregroundStyle(.secondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .accessibilityLabel(Text(label))
+    }
+
+    private func copyToPasteboard(_ text: String) {
+        #if os(macOS)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        #else
+        UIPasteboard.general.string = text
+        #endif
+
+        AccessibilityNotification.Announcement("Copied").post()
+
+        withAnimation(reduceMotion ? nil : .default) {
+            showsCopyConfirmation = true
+        }
+        Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            withAnimation(reduceMotion ? nil : .default) {
+                showsCopyConfirmation = false
+            }
+        }
+    }
+}
+
+#Preview {
+    List {
+        ForEach(
+            [
+                ImageItem(url: URL(filePath: "/tmp/sunset-beach.jpg"), status: .pending),
+                ImageItem(url: URL(filePath: "/tmp/family-dinner.jpg"), status: .generating),
+                ImageItem(
+                    url: URL(filePath: "/tmp/golden-retriever.jpg"),
+                    status: .done("A golden retriever puppy sits in tall green grass, looking up at the camera with its tongue out.")
+                ),
+                ImageItem(url: URL(filePath: "/tmp/broken.jpg"), status: .failed("Couldn't generate alt text for this image. Try again."))
+            ]
+        ) { item in
+            ImageRowView(item: item, onRegenerate: {}, onRemove: {})
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+        }
+    }
+    .listStyle(.plain)
 }
