@@ -8,18 +8,32 @@ struct ContentView: View {
     @State private var isDropTargeted = false
     @State private var isFileImporterPresented = false
     @State private var isPhotosPickerPresented = false
+    @State private var isAddSourceDialogPresented = false
     @State private var selectedPhotosPickerItems: [PhotosPickerItem] = []
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// iPhone portrait gives the toolbar roughly a third of the width a Mac
-    /// window does. Three labeled items (add / status / generate) don't all
-    /// fit there, so the two actions the user is actively trying to do keep
-    /// short labels, and the passive status indicator — informational, not
+    /// window does, and the passive status indicator — informational, not
     /// something you act on — moves out of the toolbar entirely on compact
     /// widths (see `statusHeader`) rather than shrinking to an icon nobody
     /// can get the reason out of without a mouse to hover with.
+    ///
+    /// Add stays icon-only there too, but that's iOS's own doing, not a
+    /// choice made here: the leading (`.navigation`) toolbar slot reduces
+    /// whatever's placed in it to a bare icon on iOS regardless of label
+    /// content, custom `buttonStyle`, or which of `.navigation`/
+    /// `.topBarLeading` is used — confirmed by testing every combination.
+    /// Moving it next to Generate to force text onto it only trades one
+    /// problem for three others: it empties out the leading corner Generate
+    /// used to balance, competes with Generate for the one slot that *can*
+    /// show a label (forcing Generate's own label to truncate), and — if
+    /// given Generate's non-prominent style to get a background at all —
+    /// makes an always-tappable button look disabled. Icon-only-in-the-
+    /// leading-corner is how Mail, Notes, and Reminders all treat a single
+    /// secondary action anyway, so this leaves it there and lets macOS's
+    /// unaffected leading slot show "Add Images" in full as before.
     private var isCompact: Bool { horizontalSizeClass == .compact }
 
     var body: some View {
@@ -32,30 +46,27 @@ struct ContentView: View {
             }
             .navigationTitle("AltText")
             .toolbar {
-                ToolbarItem(placement: .navigation) {
-                    Menu {
-                        Button {
-                            isPhotosPickerPresented = true
-                        } label: {
-                            Label("From Photos…", systemImage: "photo.on.rectangle.angled")
-                        }
-
-                        Button {
-                            isFileImporterPresented = true
-                        } label: {
-                            Label("From Files…", systemImage: "folder")
-                        }
-                    } label: {
-                        Label(isCompact ? "Add" : "Add Images", systemImage: "photo.badge.plus")
-                    }
-                    .labelStyle(.titleAndIcon)
-                    .keyboardShortcut("o", modifiers: .command)
-                }
-
                 if !isCompact {
                     ToolbarItem(placement: .principal) {
                         ModelStatusView(state: viewModel.modelAvailability)
                             .labelStyle(.titleAndIcon)
+                    }
+                }
+
+                ToolbarItem(placement: .navigation) {
+                    Button {
+                        isAddSourceDialogPresented = true
+                    } label: {
+                        addMenuLabel
+                    }
+                    .keyboardShortcut("o", modifiers: .command)
+                    .confirmationDialog("Add Images", isPresented: $isAddSourceDialogPresented) {
+                        Button("From Photos…") {
+                            isPhotosPickerPresented = true
+                        }
+                        Button("From Files…") {
+                            isFileImporterPresented = true
+                        }
                     }
                 }
 
@@ -188,6 +199,16 @@ struct ContentView: View {
         }
     }
 
+    /// `.titleAndIcon` is the ask; whether it's honored is entirely up to the
+    /// platform's leading toolbar slot (see the note on `isCompact`) — iOS
+    /// renders this as icon-only no matter what's requested here, macOS
+    /// renders it in full, and neither needs this view to know which.
+    private var addMenuLabel: some View {
+        Label("Add Images", systemImage: "photo.badge.plus")
+            .labelStyle(.titleAndIcon)
+            .help("Add Images")
+    }
+
     /// `.glassProminent` is Apple's deliberate pattern for the toolbar's one
     /// tinted/"prominent" action, which the system always collapses to a
     /// circular icon-only chip regardless of available width — not usable
@@ -199,7 +220,7 @@ struct ContentView: View {
     /// so there's nothing behind it to mismatch.
     @ViewBuilder
     private var generateButton: some View {
-        let title = viewModel.isGenerating ? "Generating…" : (isCompact ? "Generate" : "Generate Alt Text")
+        let title = viewModel.isGenerating ? "Generating…" : "Generate"
 
         Button {
             Task { await viewModel.generateAltText() }

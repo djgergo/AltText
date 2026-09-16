@@ -2,7 +2,7 @@
 
 Alt text for your images, written on-device, by your own Mac or iPhone.
 
-AltText is a tiny Mac + iPhone/iPad app: drop in some images, hit **Generate Alt Text**, and Apple's on-device multimodal Foundation Model writes accessible alt text for each one. Everything happens locally — no backend, no accounts, no analytics, no uploading your photos to someone else's server. If Apple Intelligence isn't available, the app just says so; it never quietly falls back to a cloud service.
+AltText is a tiny Mac + iPhone/iPad app: drop in some images, hit **Generate**, and Apple's on-device multimodal Foundation Model writes accessible alt text for each one. Everything happens locally — no backend, no accounts, no analytics, no uploading your photos to someone else's server. If Apple Intelligence isn't available, the app just says so; it never quietly falls back to a cloud service.
 
 ## What you need
 

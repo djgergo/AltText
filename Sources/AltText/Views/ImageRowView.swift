@@ -28,15 +28,22 @@ struct ImageRowView: View {
 
                         statusBadge
 
+                        // iOS already offers swipe-to-delete and a long-press context
+                        // menu for this — a third, always-visible remove control right
+                        // next to the swipe-reveal trash button doubled up on the same
+                        // trailing edge and was the actual cause of the "off" feeling
+                        // during a swipe. macOS has neither gesture, so it keeps a
+                        // normal small inline control sized for a pointer, not a touch
+                        // target.
+                        #if os(macOS)
                         Button(action: onRemove) {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
                         .help("Remove")
                         .accessibilityLabel(Text("Remove \(item.filename)"))
+                        #endif
                     }
 
                     altTextArea
@@ -139,12 +146,17 @@ struct ImageRowView: View {
                 .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: 8))
                 .accessibilityLabel(Text("Alt text for \(item.filename)"))
         case .failed(let message):
-            Label {
-                Text(message)
-                    .foregroundStyle(.secondary)
-            } icon: {
+            // A manual top-aligned HStack rather than `Label` — with a
+            // multi-line message, `Label` centers its icon against the whole
+            // wrapped block instead of the first line, unlike how a leading
+            // icon reads next to wrapped text elsewhere on the platform.
+            HStack(alignment: .top, spacing: 6) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.red)
+                Text(message)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             .font(.footnote)
         }
