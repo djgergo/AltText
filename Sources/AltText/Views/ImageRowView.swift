@@ -195,6 +195,8 @@ struct ImageRowView: View {
                 help: "Copy alt text",
                 action: { copyToPasteboard(text) }
             )
+
+            shareButton(text: text)
         }
     }
 
@@ -208,6 +210,22 @@ struct ImageRowView: View {
         .buttonStyle(.plain)
         .help(help)
         .accessibilityLabel(Text(label))
+    }
+
+    // `message:` is SwiftUI's built-in way to pair a file share with
+    // accompanying text — Mail drops it into the body, Notes/Messages
+    // attach it as context — so there's no need for a custom Transferable
+    // just to send the image and its caption together.
+    private func shareButton(text: String) -> some View {
+        ShareLink(item: item.url, message: Text(text), preview: SharePreview(Text(item.filename))) {
+            Image(systemName: "square.and.arrow.up")
+                .foregroundStyle(.secondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Share image and alt text")
+        .accessibilityLabel(Text("Share \(item.filename) with alt text"))
     }
 
     private func copyToPasteboard(_ text: String) {
