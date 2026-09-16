@@ -25,10 +25,28 @@ final class AltTextViewModel {
         }
     }
 
-    func addImages(at urls: [URL]) {
+    @discardableResult
+    func addImages(at urls: [URL]) -> [UUID] {
         let existing = Set(items.map(\.url))
         let newItems = urls.filter { !existing.contains($0) }.map { ImageItem(url: $0) }
         items.append(contentsOf: newItems)
+        return newItems.map(\.id)
+    }
+
+    // Used by the macOS Services menu entry point: adds the given files and
+    // generates for just those, independent of the batch `generateAltText()`
+    // (which would otherwise also sweep up anything else already pending).
+    func addImagesAndGenerate(at urls: [URL]) async {
+        let newIDs = addImages(at: urls)
+        guard !newIDs.isEmpty else { return }
+
+        await withTaskGroup(of: Void.self) { group in
+            for id in newIDs {
+                group.addTask { [self] in
+                    await generate(id: id)
+                }
+            }
+        }
     }
 
     func removeImage(id: UUID) {

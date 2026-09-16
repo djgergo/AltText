@@ -4,7 +4,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
-    @State private var viewModel = AltTextViewModel()
+    let viewModel: AltTextViewModel
     @State private var isDropTargeted = false
     @State private var isFileImporterPresented = false
     @State private var isPhotosPickerPresented = false
@@ -315,14 +315,14 @@ private struct GenerateButtonStyle: ButtonStyle {
 }
 
 #Preview("Regular width") {
-    ContentView()
+    ContentView(viewModel: AltTextViewModel())
 }
 
 // Forces the compact layout (shortened "Add"/"Generate" toolbar labels, full
 // status readout under the title instead of in the toolbar) directly in the
 // canvas, without needing to boot an iPhone Simulator to check it.
 #Preview("Compact width (iPhone portrait)") {
-    ContentView()
+    ContentView(viewModel: AltTextViewModel())
         .environment(\.horizontalSizeClass, .compact)
         .frame(width: 390, height: 700)
 }
