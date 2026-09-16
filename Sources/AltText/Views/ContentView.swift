@@ -1,3 +1,4 @@
+import Foundation
 import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
@@ -10,6 +11,7 @@ struct ContentView: View {
     @State private var selectedPhotosPickerItems: [PhotosPickerItem] = []
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// iPhone portrait gives the toolbar roughly a third of the width a Mac
     /// window does. Three labeled items (add / status / generate) don't all
@@ -182,7 +184,7 @@ struct ContentView: View {
                         .allowsHitTesting(false)
                 }
             }
-            .animation(.easeInOut(duration: 0.15), value: isDropTargeted)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: isDropTargeted)
         }
     }
 
@@ -214,14 +216,31 @@ struct ContentView: View {
 private struct GenerateButtonStyle: ButtonStyle {
     let isProminent: Bool
 
+    @Environment(\.self) private var environment
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.body.weight(.semibold))
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .foregroundStyle(isProminent ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary))
+            .foregroundStyle(isProminent ? AnyShapeStyle(prominentForeground) : AnyShapeStyle(.secondary))
             .background(Capsule().fill(isProminent ? AnyShapeStyle(.tint) : AnyShapeStyle(.fill.quaternary)))
             .opacity(configuration.isPressed ? 0.75 : 1)
+    }
+
+    // White (the usual choice for a filled capsule) can drop below readable
+    // contrast against light accent colors some people choose (yellow, mint,
+    // …). Picking black or white from the tint's own relative luminance keeps
+    // this legible for every system accent color instead of just the default.
+    private var prominentForeground: Color {
+        let resolved = Color.accentColor.resolve(in: environment)
+        func linearize(_ component: Float) -> Float {
+            component <= 0.04045 ? component / 12.92 : pow((component + 0.055) / 1.055, 2.4)
+        }
+        let luminance = 0.2126 * linearize(resolved.red)
+            + 0.7152 * linearize(resolved.green)
+            + 0.0722 * linearize(resolved.blue)
+        return luminance > 0.5 ? .black : .white
     }
 }
 

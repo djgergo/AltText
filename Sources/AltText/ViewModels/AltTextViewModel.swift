@@ -71,8 +71,13 @@ final class AltTextViewModel {
         do {
             let text = try await service.generateAltText(for: item)
             updateStatus(.done(text), for: id)
+        } catch let error as AltTextServiceError {
+            updateStatus(.failed(error.errorDescription ?? "Couldn't generate alt text."), for: id)
         } catch {
-            updateStatus(.failed(error.localizedDescription), for: id)
+            // Anything else (a framework or sandbox failure) surfaces as an
+            // opaque, implementation-specific string via `localizedDescription` —
+            // not something a person can act on, so show a plain message instead.
+            updateStatus(.failed("Couldn't generate alt text for this image. Try again."), for: id)
         }
     }
 

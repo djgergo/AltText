@@ -7,6 +7,11 @@ struct ImageRowView: View {
 
     @State private var thumbnail: PlatformImage?
 
+    // Scales with Dynamic Type so enlarged accessibility text sizes still fit
+    // without the editor's own scrolling fighting the outer List's.
+    @ScaledMetric(relativeTo: .body) private var altTextAreaMinHeight: CGFloat = 44
+    @ScaledMetric(relativeTo: .body) private var altTextAreaMaxHeight: CGFloat = 88
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .center, spacing: 14) {
@@ -28,6 +33,8 @@ struct ImageRowView: View {
                                 .foregroundStyle(.secondary)
                         }
                         .buttonStyle(.plain)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                         .help("Remove")
                         .accessibilityLabel(Text("Remove \(item.filename)"))
                     }
@@ -64,10 +71,21 @@ struct ImageRowView: View {
                 .stroke(.separator, lineWidth: 1)
         }
         .clipped()
-        .accessibilityHidden(true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(thumbnailAccessibilityLabel ?? Text(""))
+        .accessibilityHidden(thumbnailAccessibilityLabel == nil)
         .task(id: item.url) {
             thumbnail = await ThumbnailCache.shared.thumbnail(for: item.url)
         }
+    }
+
+    // The filename is already read by the row's own Text, so an empty
+    // thumbnail would only repeat it — VoiceOver skips the image until there's
+    // generated alt text, at which point the image can speak to its own
+    // content instead of staying silent for the person who can't see it.
+    private var thumbnailAccessibilityLabel: Text? {
+        guard case .done(let text) = item.status, !text.isEmpty else { return nil }
+        return Text(text)
     }
 
     @ViewBuilder
@@ -85,14 +103,23 @@ struct ImageRowView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            .accessibilityElement(children: .combine)
         case .done:
-            Label("Done", systemImage: "checkmark.circle.fill")
-                .font(.caption)
-                .foregroundStyle(.green)
+            Label {
+                Text("Done")
+            } icon: {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            }
+            .font(.caption)
         case .failed:
-            Label("Failed", systemImage: "exclamationmark.triangle.fill")
-                .font(.caption)
-                .foregroundStyle(.red)
+            Label {
+                Text("Failed")
+            } icon: {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+            }
+            .font(.caption)
         }
     }
 
@@ -107,14 +134,19 @@ struct ImageRowView: View {
             TextEditor(text: altText)
                 .font(.body)
                 .scrollContentBackground(.hidden)
-                .frame(minHeight: 44, maxHeight: 88)
+                .frame(minHeight: altTextAreaMinHeight, maxHeight: altTextAreaMaxHeight)
                 .padding(8)
                 .background(.fill.tertiary, in: RoundedRectangle(cornerRadius: 8))
                 .accessibilityLabel(Text("Alt text for \(item.filename)"))
         case .failed(let message):
-            Text(message)
-                .font(.footnote)
-                .foregroundStyle(.red)
+            Label {
+                Text(message)
+                    .foregroundStyle(.secondary)
+            } icon: {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+            }
+            .font(.footnote)
         }
     }
 
@@ -122,7 +154,7 @@ struct ImageRowView: View {
         Text(text)
             .font(.body)
             .foregroundStyle(.secondary)
-            .frame(minHeight: 44, alignment: .leading)
+            .frame(minHeight: altTextAreaMinHeight, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

@@ -27,11 +27,19 @@ struct ModelStatusView: View {
                             .controlSize(.small)
                     }
                 case .ready:
-                    Label(state.label, systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                    Label {
+                        Text(state.label)
+                    } icon: {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    }
                 case .unavailable:
-                    Label(state.label, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
+                    Label {
+                        Text(state.label)
+                    } icon: {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                    }
                 }
             }
             .font(.callout)

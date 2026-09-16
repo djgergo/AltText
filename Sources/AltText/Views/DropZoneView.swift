@@ -5,6 +5,8 @@ struct DropZoneView: View {
     let onChoosePhotos: () -> Void
     let onChooseFiles: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         ContentUnavailableView {
             Label("Drop Images Here", systemImage: "photo.badge.plus")
@@ -23,6 +25,6 @@ struct DropZoneView: View {
                     .padding(8)
             }
         }
-        .animation(.easeInOut(duration: 0.15), value: isTargeted)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: isTargeted)
     }
 }
