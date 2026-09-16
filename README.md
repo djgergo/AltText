@@ -4,6 +4,11 @@ Alt text for your images, written on-device, by your own Mac or iPhone.
 
 AltText is a tiny Mac + iPhone/iPad app: drop in some images, hit **Generate**, and Apple's on-device multimodal Foundation Model writes accessible alt text for each one. Everything happens locally — no backend, no accounts, no analytics, no uploading your photos to someone else's server. If Apple Intelligence isn't available, the app just says so; it never quietly falls back to a cloud service.
 
+## What it can do
+
+- **Regenerate, Copy, Share, or Export** each result — export writes a copy of the image with the alt text embedded directly in its metadata (EXIF/IPTC/XMP description fields), so it travels with the file.
+- **macOS: right-click an image → Generate Alt Text** — a Services menu entry that adds the file(s) and starts generating without opening the app first.
+
 ## What you need
 
 - A Mac that can run Xcode (free from the Mac App Store) — optionally an iPhone or iPad too, if you want to try it there
