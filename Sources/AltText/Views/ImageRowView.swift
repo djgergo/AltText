@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 #if os(macOS)
 import AppKit
@@ -212,12 +213,17 @@ struct ImageRowView: View {
         .accessibilityLabel(Text(label))
     }
 
-    // `message:` is SwiftUI's built-in way to pair a file share with
-    // accompanying text — Mail drops it into the body, Notes/Messages
-    // attach it as context — so there's no need for a custom Transferable
-    // just to send the image and its caption together.
+    // Sharing `item.url` directly would use URL's own Transferable
+    // conformance, which hands recipients the URL itself rather than the
+    // image — that's why Reminders showed a raw file:// link instead of an
+    // attached photo. `ShareableImage` instead promises actual image bytes
+    // under an image content type, so recipients treat it as a real photo.
     private func shareButton(text: String) -> some View {
-        ShareLink(item: item.url, message: Text(text), preview: SharePreview(Text(item.filename))) {
+        ShareLink(
+            item: ShareableImage(url: item.url),
+            message: Text(text),
+            preview: SharePreview(Text(item.filename), image: sharePreviewImage)
+        ) {
             Image(systemName: "square.and.arrow.up")
                 .foregroundStyle(.secondary)
                 .frame(width: 44, height: 44)
@@ -226,6 +232,14 @@ struct ImageRowView: View {
         .buttonStyle(.plain)
         .help("Share image and alt text")
         .accessibilityLabel(Text("Share \(item.filename) with alt text"))
+    }
+
+    private var sharePreviewImage: Image {
+        if let thumbnail {
+            Image(platformImage: thumbnail)
+        } else {
+            Image(systemName: "photo")
+        }
     }
 
     private func copyToPasteboard(_ text: String) {
@@ -247,6 +261,34 @@ struct ImageRowView: View {
                 showsCopyConfirmation = false
             }
         }
+    }
+}
+
+// Wraps a file URL so ShareLink promises actual image bytes rather than
+// deferring to URL's own Transferable conformance, which shares the URL
+// as a reference/link instead of the image it points to.
+private struct ShareableImage: Transferable {
+    let url: URL
+
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(exportedContentType: .image) { shareable in
+            SentTransferredFile(try shareable.exportedFileURL())
+        }
+    }
+
+    // Copies the original into a fresh temporary file while explicitly
+    // holding security-scoped access: the share extension reads the file
+    // asynchronously, possibly after this app's own scoped access (from
+    // `.fileImporter` or a drag) would otherwise have already expired.
+    private func exportedFileURL() throws -> URL {
+        let isAccessing = url.startAccessingSecurityScopedResource()
+        defer { if isAccessing { url.stopAccessingSecurityScopedResource() } }
+
+        let destination = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension(url.pathExtension)
+        try FileManager.default.copyItem(at: url, to: destination)
+        return destination
     }
 }
 
